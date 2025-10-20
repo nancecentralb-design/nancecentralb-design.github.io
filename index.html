@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Docs</title>
+
+  <!-- Minimal, clean styling -->
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #0f1720;
+      --text: #e5eef7;
+      --muted: #9bb0c9;
+      --accent: #7cc5ff;
+      --border: #1b2634;
+      --link: #8dd3ff;
+      --maxw: 1200px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b0f14, #0d1420 40%, #0b0f14 100%);
+      color: var(--text);
+      font: 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+      max-width: var(--maxw);
+      margin: 0 auto;
+    }
+    header {
+      grid-column: 1 / -1;
+      position: sticky; top: 0; z-index: 3;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11,15,20,.7);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; gap: 12px; justify-content: space-between;
+    }
+    header .brand { font-weight: 700; letter-spacing:.2px }
+    header input[type="search"] {
+      width: 360px; max-width: 45vw;
+      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--panel); color: var(--text);
+    }
+    .layout { display: contents; }
+    nav {
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, #0d1520, #0f1720);
+      padding: 14px;
+      overflow: auto;
+    }
+    .toc h3 { margin: 10px 0 6px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+    .toc a {
+      display: block; padding: 8px 10px; border-radius: 10px; margin: 4px 0;
+      color: var(--text);
+    }
+    .toc a:hover, .toc a.active { background: #122033; }
+    main {
+      padding: 26px 30px 80px; overflow: auto;
+    }
+    main article {
+      background: linear-gradient(180deg, #0e1622, #0f1a28);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    main img { max-width: 100%; height: auto; border-radius: 8px; }
+    main pre { overflow: auto; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background:#0b1220; }
+    main code:not(pre code) { padding: .15em .35em; border-radius: 6px; background:#0b1220; border: 1px solid var(--border); }
+    main h1,h2,h3 { scroll-margin-top: 72px; }
+    .footer {
+      margin-top: 18px; color: var(--muted); font-size: 13px;
+      border-top: 1px dashed var(--border); padding-top: 12px;
+    }
+    .hidden { display: none !important; }
+    .search-hit { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    /* Mobile */
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      nav { position: fixed; inset: 58px 0 auto 0; height: calc(100vh - 58px); transform: translateX(-100%); transition: transform .2s ease; z-index: 4; }
+      nav.open { transform: translateX(0); }
+      .menu-btn { display: inline-flex; }
+    }
+    .menu-btn { display: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 8px 10px; border-radius: 10px; }
+  </style>
+
+  <!-- Marked (Markdown) + Highlight.js (code) via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="menu-btn" id="menuBtn">☰</button>
+        <div class="brand">Docs</div>
+      </div>
+      <input id="search" type="search" placeholder="Search headings in this page…" aria-label="Search headings"/>
+    </header>
+
+    <div class="layout">
+      <nav id="sidebar">
+        <div class="toc" id="toc"><h3>Contents</h3><div id="tocItems">Loading…</div></div>
+      </nav>
+
+      <main id="main">
+        <article id="content">Loading…</article>
+        <div class="footer">
+          Served as static HTML. Markdown files are fetched from this repository (same origin), so it works on GitHub Pages.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ===== Configuration =====================================================
+    // If your Markdown lives under /docs or /book, set a base path like "docs/".
+    const BASE_PATH = ""; // e.g. "docs/" if your README.md is in /docs/README.md
+    const DEFAULT_MD = "README.md"; // fallback document
+    const SUMMARY_MD = "SUMMARY.md"; // GitBook-style table of contents
+    const TITLE_SUFFIX = " – Docs";
+
+    // ===== Utilities =========================================================
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+    const byHashPath = () => decodeURIComponent(location.hash.replace(/^#\/?/, "")) || DEFAULT_MD;
+    const isMd = (p) => /\.md$/i.test(p);
+
+    async function fetchText(path) {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+      return await res.text();
+    }
+
+    function setActiveInTOC(path) {
+      $$("#toc a").forEach(a => a.classList.toggle("active", a.getAttribute("href") === `#/${path}`));
+    }
+
+    // Convert GitBook-ish SUMMARY.md into sidebar links
+    function buildTOCFromSummary(summaryText) {
+      const lines = summaryText.split(/\r?\n/);
+      const container = document.createElement("div");
+      let currentList = document.createElement("div");
+      container.appendChild(currentList);
+
+      for (const line of lines) {
+        const m = line.match(/^\s*\*?\s*\[([^\]]+)\]\(([^)]+)\)/i);
+        if (m) {
+          const title = m[1].trim();
+          let href = m[2].trim();
+          if (!isMd(href)) href = href.replace(/\/?$/, ".md");
+          const a = document.createElement("a");
+          a.textContent = title;
+          a.href = `#/${href}`;
+          currentList.appendChild(a);
+        } else if (/^\s*#/.test(line)) {
+          const h = document.createElement("h3");
+          h.textContent = line.replace(/^\s*#+\s*/, "");
+          container.appendChild(h);
+        }
+      }
+      const tocItems = $("#tocItems");
+      tocItems.innerHTML = "";
+      tocItems.appendChild(container);
+    }
+
+    // Build TOC by scanning headings of current page (fallback when SUMMARY.md missing)
+    function buildTOCFromHeadings() {
+      const tocItems = $("#tocItems");
+      tocItems.innerHTML = "";
+      const hs = $$("#content h1, #content h2, #content h3");
+      if (!hs.length) {
+        tocItems.textContent = "No table of contents.";
+        return;
+      }
+      for (const h of hs) {
+        const id = h.id || h.textContent.trim().toLowerCase().replace(/[^\w]+/g, "-");
+        h.id = id;
+        const a = document.createElement("a");
+        a.href = `#/${byHashPath()}#${id}`;
+        a.textContent = (h.tagName === "H1" ? "• " : h.tagName === "H2" ? "↳ " : "  – ") + h.textContent;
+        tocItems.appendChild(a);
+      }
+    }
+
+    // Render Markdown to HTML
+    function renderMarkdown(md) {
+      // Marked options
+      marked.setOptions({
+        headerIds: true,
+        mangle: false,
+        gfm: true,
+        breaks: false,
+        highlight: function(code, lang) {
+          try {
+            if (lang && hljs.getLanguage(lang)) {
+              return hljs.highlight(code, {language: lang}).value;
+            }
+          } catch (e) {}
+          return hljs.highlightAuto(code).value;
+        }
+      });
+
+      // Rewrite local links to hash routes
+      const renderer = new marked.Renderer();
+      renderer.link = function(href, title, text) {
+        if (href && !/^https?:\/\//i.test(href) && !href.startsWith('#')) {
+          if (!isMd(href)) href = href.replace(/\/?$/, ".md");
+          href = `#/${href}`;
+        }
+        const t = title ? ` title="${title}"` : "";
+        return `<a href="${href}"${t}>${text}</a>`;
+      };
+
+      // Ensure images resolve relative to current md file
+      renderer.image = function(href, title, text) {
+        const base = byHashPath().split("/").slice(0, -1).join("/");
+        const resolved = (/^https?:\/\//i.test(href) || href.startsWith('/')) ? href : (base ? base + "/" : "") + href;
+        const t = title ? ` title="${title}"` : "";
+        return `<img src="${resolved}" alt="${text || ""}"${t}/>`;
+      };
+
+      return marked.parse(md, { renderer });
+    }
+
+    async function loadSummary() {
+      try {
+        const sum = await fetchText(`${BASE_PATH}${SUMMARY_MD}`);
+        buildTOCFromSummary(sum);
+      } catch {
+        // No SUMMARY.md — will build from headings after content render
+      }
+    }
+
+    async function loadDoc(path) {
+      try {
+        const md = await fetchText(`${BASE_PATH}${path}`);
+        const html = renderMarkdown(md);
+        $("#content").innerHTML = html;
+        document.title = (md.match(/^#\s+(.+)$/m)?.[1] || path.replace(/\.md$/i,"")) + TITLE_SUFFIX;
+        // If we didn't have a SUMMARY.md, build a per-page TOC
+        if (!$("#toc a")) buildTOCFromHeadings();
+        setActiveInTOC(path);
+
+        // If URL has an in-page anchor after the md path, scroll to it
+        const hashFrag = location.hash.split("#")[2];
+        if (hashFrag) {
+          const target = document.getElementById(hashFrag);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // Intercept internal link clicks (for content not rewritten)
+        $("#content").addEventListener("click", (e) => {
+          const a = e.target.closest("a");
+          if (!a) return;
+          const url = new URL(a.href, location.href);
+          const sameOrigin = url.origin === location.origin;
+          if (sameOrigin && !/^https?:/i.test(a.getAttribute("href")) && !a.getAttribute("href").startsWith("#")) {
+            e.preventDefault();
+            const dest = a.getAttribute("href").replace(/^#\//, "");
+            location.hash = `#/${dest}`;
+          }
+        }, { once: true });
+
+      } catch (err) {
+        $("#content").innerHTML = `<p>⚠️ Could not load <code>${path}</code>.<br><small>${err.message}</small></p>`;
+        document.title = "Not found" + TITLE_SUFFIX;
+      }
+    }
+
+    // ===== Router ============================================================
+    async function router() {
+      const path = byHashPath();
+      await loadSummary();
+      await loadDoc(isMd(path) ? path : (path + ".md"));
+    }
+
+    // ===== UI wiring =========================================================
+    window.addEventListener("hashchange", router);
+    window.addEventListener("DOMContentLoaded", () => {
+      router();
+
+      // Mobile nav
+      const sidebar = $("#sidebar");
+      $("#menuBtn").addEventListener("click", () => sidebar.classList.toggle("open"));
+      sidebar.addEventListener("click", (e) => {
+        if (e.target.tagName === "A") sidebar.classList.remove("open");
+      });
+
+      // Search: simple in-page heading filter
+      const search = $("#search");
+      let lastHits = [];
+      search.addEventListener("input", () => {
+        // Clear previous highlights
+        lastHits.forEach(el => el.classList.remove("search-hit"));
+        lastHits = [];
+        const q = search.value.trim().toLowerCase();
+        if (!q) return;
+        const hs = $$("#content h1, #content h2, #content h3, #content p, #content li");
+        for (const el of hs) {
+          if (el.textContent.toLowerCase().includes(q)) {
+            el.classList.add("search-hit");
+            lastHits.push(el);
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
